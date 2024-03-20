@@ -150,6 +150,9 @@ install_system_deps () {
         unset 'package_list[-1]'
     fi
 
+    # Always install gpg, since swiftly itself needs it for signature verification.
+    package_list+=("gpg")
+
     install_args=(--quiet -y)
 
     # Disable errexit since failing to install system dependencies is not swiftly installation-fatal.
@@ -356,6 +359,7 @@ OPTIONS:
     --no-modify-profile         Do not attempt to modify the profile file to set environment 
                                 variables (e.g. PATH) on login.
     --no-install-system-deps    Do not attempt to install Swift's required system dependencies.
+    --no-import-pgp-keys        Do not attempt to import Swift's PGP keys.
     -p, --platform <platform>   Specifies which platform's toolchains swiftly will download. If
                                 unspecified, the platform will be automatically detected. Available
                                 options are "ubuntu22.04", "ubuntu20.04", "ubuntu18.04", "rhel9", and
@@ -382,6 +386,11 @@ EOF
 
         "--no-install-system-deps")
             SWIFTLY_INSTALL_SYSTEM_DEPS="false"
+            shift
+            ;;
+
+        "--no-import-pgp-keys")
+            swiftly_import_pgp_keys="false"
             shift
             ;;
 
@@ -621,11 +630,21 @@ if [[ "$detected_existing_installation" != "true" || "$overwrite_existing_intall
             echo "$SOURCE_LINE" >> "$PROFILE_FILE"
         fi
     fi
+fi
 
-    if [[ "$SWIFTLY_INSTALL_SYSTEM_DEPS" != "false" ]]; then
+if [[ "$SWIFTLY_INSTALL_SYSTEM_DEPS" != "false" ]]; then
+    echo ""
+    echo "Installing Swift's system dependencies via $package_manager (note: this may require root access)..."
+    install_system_deps
+fi
+
+if [[ "$swiftly_import_pgp_keys" != "false" ]]; then
+    if has_command gpg ; then
         echo ""
-        echo "Installing Swift's system dependencies via $package_manager (note: this may require root access)..."
-        install_system_deps
+        echo "Importing Swift's PGP keys..."
+        curl --silent --retry 3 --location --fail https://swift.org/keys/all-keys.asc | gpg --import -
+    else
+        echo "gpg not installed, skipping import of Swift's PGP keys."
     fi
 fi
 

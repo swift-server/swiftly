@@ -13,9 +13,11 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 
 # dependencies
-RUN apt-get update --fix-missing && apt-get install -y curl build-essential
+RUN apt-get update --fix-missing && apt-get install -y curl build-essential gpg
 COPY ./scripts/install-libarchive.sh /
 RUN /install-libarchive.sh
+
+RUN curl -L https://swift.org/keys/all-keys.asc | gpg --import
 
 # tools
 RUN mkdir -p $HOME/.tools

@@ -9,7 +9,8 @@ RUN yum install -y --allowerasing \
     curl \
     gcc \
     gcc-c++ \
-    make
+    make \
+    gpg
 COPY ./scripts/install-libarchive.sh /
 RUN /install-libarchive.sh
 

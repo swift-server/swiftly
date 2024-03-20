@@ -137,7 +137,11 @@ public struct SwiftlyHTTPClient {
         public let url: String
     }
 
-    public func downloadFile(url: URL, to destination: URL, reportProgress: @escaping (DownloadProgress) -> Void) async throws {
+    public func downloadFile(
+        url: URL,
+        to destination: URL,
+        reportProgress: ((DownloadProgress) -> Void)? = nil
+    ) async throws {
         let fileHandle = try FileHandle(forWritingTo: destination)
         defer {
             try? fileHandle.close()
@@ -168,7 +172,7 @@ public struct SwiftlyHTTPClient {
             }
 
             let now = Date()
-            if lastUpdate.distance(to: now) > 0.25 || receivedBytes == expectedBytes {
+            if let reportProgress, lastUpdate.distance(to: now) > 0.25 || receivedBytes == expectedBytes {
                 lastUpdate = now
                 reportProgress(SwiftlyHTTPClient.DownloadProgress(
                     receivedBytes: receivedBytes,

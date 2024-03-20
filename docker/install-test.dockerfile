@@ -8,5 +8,5 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 
 # dependencies
-RUN apt-get update --fix-missing && apt-get install -y curl
+RUN apt-get update --fix-missing && apt-get install -y curl gpg
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.profile

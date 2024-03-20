@@ -56,10 +56,13 @@ struct Install: SwiftlyCommand {
     ))
     var token: String?
 
+    @Flag(help: "Skip PGP verification of the installed toolchain's signature.")
+    var noVerify = false
+
     public var httpClient = SwiftlyHTTPClient()
 
     private enum CodingKeys: String, CodingKey {
-        case version, token, use
+        case version, token, use, noVerify
     }
 
     mutating func run() async throws {
@@ -67,14 +70,21 @@ struct Install: SwiftlyCommand {
         self.httpClient.githubToken = self.token
         let toolchainVersion = try await self.resolve(selector: selector)
         var config = try Config.load()
-        try await Self.execute(version: toolchainVersion, &config, self.httpClient, useInstalledToolchain: self.use)
+        try await Self.execute(
+            version: toolchainVersion,
+            &config,
+            self.httpClient,
+            useInstalledToolchain: self.use,
+            verifySignature: !self.noVerify
+        )
     }
 
     internal static func execute(
         version: ToolchainVersion,
         _ config: inout Config,
         _ httpClient: SwiftlyHTTPClient,
-        useInstalledToolchain: Bool
+        useInstalledToolchain: Bool,
+        verifySignature: Bool
     ) async throws {
         guard !config.installedToolchains.contains(version) else {
             SwiftlyCore.print("\(version) is already installed, exiting.")
@@ -167,8 +177,15 @@ struct Install: SwiftlyCommand {
             animation.complete(success: false)
             throw error
         }
-
         animation.complete(success: true)
+
+        if verifySignature {
+            try await Swiftly.currentPlatform.verifySignature(
+                httpClient: httpClient,
+                archiveDownloadURL: url,
+                archive: tmpFile
+            )
+        }
 
         try Swiftly.currentPlatform.install(from: tmpFile, version: version)
 

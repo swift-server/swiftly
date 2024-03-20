@@ -141,5 +141,76 @@ public struct Linux: Platform {
         FileManager.default.temporaryDirectory.appendingPathComponent("swiftly-\(UUID())")
     }
 
+    public func verifySignature(httpClient: SwiftlyHTTPClient, archiveDownloadURL: URL, archive: URL) async throws {
+        guard (try? self.runProgram("gpg", "--version", quiet: true)) != nil else {
+            SwiftlyCore.print("gpg not installed, skipping signature verification.")
+            return
+        }
+
+        let foundKeys = (try? self.runProgram(
+            "gpg",
+            "--list-keys",
+            "swift-infrastructure@forums.swift.org",
+            "swift-infrastructure@swift.org",
+            quiet: true
+        )) != nil
+        guard foundKeys else {
+            SwiftlyCore.print("Swift PGP keys not imported, skipping signature verification.")
+            SwiftlyCore.print("To enable verification, import the keys from https://swift.org/keys/all-keys.asc")
+            return
+        }
+
+        SwiftlyCore.print("Refreshing Swift PGP keys...")
+        do {
+            try self.runProgram(
+                "gpg",
+                "--quiet",
+                "--keyserver",
+                "hkp://keyserver.ubuntu.com",
+                "--refresh-keys",
+                "Swift"
+            )
+        } catch {
+            throw Error(message: "Failed to refresh PGP keys: \(error)")
+        }
+
+        SwiftlyCore.print("Downloading toolchain signature...")
+        let sigFile = self.getTempFilePath()
+        FileManager.default.createFile(atPath: sigFile.path, contents: nil)
+        defer {
+            try? FileManager.default.removeItem(at: sigFile)
+        }
+
+        try await httpClient.downloadFile(
+            url: archiveDownloadURL.appendingPathExtension("sig"),
+            to: sigFile
+        )
+
+        SwiftlyCore.print("Verifying toolchain signature...")
+        do {
+            try self.runProgram("gpg", "--verify", sigFile.path, archive.path)
+        } catch {
+            throw Error(message: "Toolchain signature verification failed: \(error)")
+        }
+    }
+
+    private func runProgram(_ args: String..., quiet: Bool = false) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = args
+
+        if quiet {
+            process.standardOutput = nil
+            process.standardError = nil
+        }
+
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            throw Error(message: "\(args.first!) exited with non-zero status: \(process.terminationStatus)")
+        }
+    }
+
     public static let currentPlatform: any Platform = Linux()
 }

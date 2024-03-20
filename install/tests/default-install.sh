@@ -147,6 +147,11 @@ for dep in "${system_deps[@]}"; do
     echo "System dependency $dep was installed successfully"
 done
 
+
+if ! gpg --list-keys Swift ; then
+    test_fail "Swift PGP keys were not installed by default."
+fi
+
 swiftly install latest
 
 swift --version

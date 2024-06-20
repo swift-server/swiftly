@@ -6,3 +6,4 @@ xcuserdata/
 DerivedData/
 .swiftpm/
 .vscode/
+.devcontainer/

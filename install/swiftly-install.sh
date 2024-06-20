@@ -113,7 +113,7 @@ bold () {
     echo "$(tput bold)$1$(tput sgr0)"
 }
 
-# Fetch the list of required system dependencies from the apple/swift-docker
+# Fetch the list of required system dependencies from the swiftlang/swift-docker
 # repository and attempt to install them using the system's package manager.
 #
 # $docker_platform_name, $docker_platform_version, and $package manager need
@@ -127,28 +127,38 @@ install_system_deps () {
         return
     fi
 
-    dockerfile_url="https://raw.githubusercontent.com/apple/swift-docker/main/nightly-main/$docker_platform_name/$docker_platform_version/Dockerfile"
+    dockerfile_url="https://raw.githubusercontent.com/swiftlang/swift-docker/main/nightly-main/$docker_platform_name/$docker_platform_version/Dockerfile"
+    set +e
     dockerfile="$(curl --silent --retry 3 --location --fail $dockerfile_url)"
-    if [[ "$?" -ne 0 ]]; then
+    # if we couldn't find Dockerfile in nightly-main use swift-ci/master version
+    if [[ -z "$dockerfile" ]]; then
+        dockerfile_url="https://raw.githubusercontent.com/swiftlang/swift-docker/main/swift-ci/master/$docker_platform_name/$docker_platform_version/Dockerfile"
+        dockerfile="$(curl --silent --retry 3 --location --fail $dockerfile_url)"
+    fi
+    set -e
+    if [[ -z "$dockerfile" ]]; then
         echo "Error enumerating system dependencies, skipping installation of system dependencies."
+        return
     fi
 
     # Find the line number of the RUN command associated with installing system dependencies.
-    beg_line_num=$(printf "$dockerfile" | grep -n --max-count=1 "$package_manager.*install" | cut -d ":" -f1)
+    beg_line_num=$(echo "$dockerfile" | grep -n --max-count=1 "$package_manager.*install" | cut -d ":" -f1)
 
     # Starting from there, find the first line that starts with an & or doesn't end in a backslash.
-    relative_end_line_num=$(printf "$dockerfile" |
+    relative_end_line_num=$(echo "$dockerfile" |
                                 tail --lines=+"$((beg_line_num + 1))" |
                                 grep -n --max-count=1 --invert-match '[[:space:]]*[^&].*\\$' | cut -d ":" -f1)
     end_line_num=$((beg_line_num + relative_end_line_num))
 
     # Read the lines between those two, deleting any spaces and backslashes.
-    readarray -t package_list < <(printf "$dockerfile" | sed -n "$((beg_line_num + 1)),${end_line_num}p" | sed -r 's/[\ ]//g')
+    readarray -t package_list < <(echo "$dockerfile" | sed -n "$((beg_line_num + 1)),${end_line_num}p" | sed -r 's/[\ ]//g')
 
     # If the installation command from the Dockerfile included some cleanup as part of a second command, drop that.
     if [[ "${package_list[-1]}" =~ ^\&\& ]]; then
         unset 'package_list[-1]'
     fi
+
+    echo "Found ${package_list[@]}"
 
     # Always install gpg, since swiftly itself needs it for signature verification.
     package_list+=("gpg")
@@ -209,6 +219,30 @@ set_platform_rhel () {
     fi
 }
 
+set_platform_debian () {
+    PLATFORM_NAME="debian$1"
+    PLATFORM_NAME_FULL="debian$1"
+    docker_platform_name="debian"
+    docker_platform_version="$1"
+    package_manager="apt-get"
+
+    if [[ -z "$PLATFORM_NAME_PRETTY" ]]; then
+        PLATFORM_NAME_PRETTY="Debian $1"
+    fi
+}
+
+set_platform_fedora () {
+    PLATFORM_NAME="fedora$1"
+    PLATFORM_NAME_FULL="fedora$1"
+    docker_platform_name="fedora"
+    docker_platform_version="$1"
+    package_manager="yum"
+
+    if [[ -z "$PLATFORM_NAME_PRETTY" ]]; then
+        PLATFORM_NAME_PRETTY="Fedora Linux $1"
+    fi
+}
+
 detect_platform () {
     if [[ -f "/etc/os-release" ]]; then
         OS_RELEASE="/etc/os-release"
@@ -232,6 +266,14 @@ detect_platform () {
 
         *"ubuntu"*)
             case "$UBUNTU_CODENAME" in
+                "noble")
+                    set_platform_ubuntu "24" "04"
+                    ;;
+
+                "mantic")
+                    set_platform_ubuntu "23" "10"
+                    ;;
+
                 "jammy")
                     set_platform_ubuntu "22" "04"
                     ;;
@@ -258,6 +300,22 @@ detect_platform () {
             fi
             ;;
 
+        *"debian"*)
+            if [[ "$VERSION_ID" != 12 ]]; then
+                manually_select_platform
+            else
+                set_platform_debian "12"
+            fi
+            ;;
+
+        *"fedora"*)
+            if [[ "$VERSION_ID" != 39 ]]; then
+                manually_select_platform
+            else
+                set_platform_fedora "39"
+            fi
+            ;;
+
         *)
             manually_select_platform
             ;;
@@ -274,32 +332,52 @@ manually_select_platform () {
     echo "Please select the platform to use for toolchain downloads:"
 
     echo "0) Cancel"
-    echo "1) Ubuntu 22.04"
-    echo "2) Ubuntu 20.04"
-    echo "3) Ubuntu 18.04"
-    echo "4) RHEL 9"
-    echo "5) Amazon Linux 2"
+    echo "1) Ubuntu 24.04"
+    echo "2) Ubuntu 23.10"
+    echo "3) Ubuntu 22.04"
+    echo "4) Ubuntu 20.04"
+    echo "5) Ubuntu 18.04"
+    echo "6) RHEL 9"
+    echo "7) Amazon Linux 2"
+    echo "8) Debian 12"
+    echo "9) Fedora 39"
 
     read_input_with_default "0"
     case "$READ_INPUT_RETURN" in
         "1" | "1)")
-            set_platform_ubuntu "22" "04"
+            set_platform_ubuntu "24" "04"
             ;;
 
         "2" | "2)")
-            set_platform_ubuntu "20" "04"
+            set_platform_ubuntu "23" "10"
             ;;
 
         "3" | "3)")
-            set_platform_ubuntu "18" "04"
+            set_platform_ubuntu "22" "04"
             ;;
 
         "4" | "4)")
-            set_platform_rhel "9"
+            set_platform_ubuntu "20" "04"
             ;;
 
         "5" | "5)")
+            set_platform_ubuntu "18" "04"
+            ;;
+
+        "6" | "6)")
+            set_platform_rhel "9"
+            ;;
+
+        "7" | "7)")
             set_platform_amazonlinux "2"
+            ;;
+
+        "8" | "8)")
+            set_platform_debian "12"
+            ;;
+
+        "9" | "9)")
+            set_platform_fedora "39"
             ;;
 
         *)
@@ -362,8 +440,8 @@ OPTIONS:
     --no-import-pgp-keys        Do not attempt to import Swift's PGP keys.
     -p, --platform <platform>   Specifies which platform's toolchains swiftly will download. If
                                 unspecified, the platform will be automatically detected. Available
-                                options are "ubuntu22.04", "ubuntu20.04", "ubuntu18.04", "rhel9", and
-                                "amazonlinux2".
+                                options are "ubuntu24.04", "ubuntu23.10", "ubuntu22.04", "ubuntu20.04", 
+                                "ubuntu18.04", "rhel9", "amazonlinux2", "debian12 and "fedora39".
     --overwrite                 Overwrite the existing swiftly installation found at the configured
                                 SWIFTLY_HOME, if any. If this option is unspecified and an existing
                                 installation is found, the swiftly executable will be updated, but
@@ -401,6 +479,14 @@ EOF
 
         "--platform" | "-p")
             case "$2" in
+                "ubuntu24.04")
+                    set_platform_ubuntu "24" "04"
+                    ;;
+
+                "ubuntu23.10")
+                    set_platform_ubuntu "23" "10"
+                    ;;
+
                 "ubuntu22.04")
                     set_platform_ubuntu "22" "04"
                     ;;
@@ -419,6 +505,14 @@ EOF
 
                 "rhel9")
                     set_platform_rhel "9"
+                    ;;
+
+                "debian12")
+                    set_platform_debian "12"
+                    ;;
+
+                "fedora39")
+                    set_platform_fedora "39"
                     ;;
 
                 *)
@@ -577,7 +671,7 @@ mkdir -p $HOME_DIR/toolchains
 mkdir -p $BIN_DIR
 
 EXECUTABLE_NAME="swiftly-$ARCH-unknown-linux-gnu"
-DOWNLOAD_URL="https://github.com/swift-server/swiftly/releases/latest/download/$EXECUTABLE_NAME"
+DOWNLOAD_URL="https://github.com/swiftlang/swiftly/releases/latest/download/$EXECUTABLE_NAME"
 echo "Downloading swiftly from $DOWNLOAD_URL..."
 curl \
     --retry 3 \

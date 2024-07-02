@@ -41,7 +41,7 @@ Target: x86_64-unknown-linux-gnu
 - Linux-based platforms listed on https://swift.org/download
   - CentOS 7 will not be supported due to some dependencies of swiftly not supporting it, however.
 
-Right now, swiftly is in the very early stages of development and is only supported on Linux, but the long term plan is to also support macOS. For more detailed information about swiftly's intended features and implementation, check out the [design document](DESIGN.md).
+Right now, swiftly is in early stages of development and is supported on Linux and macOS. For more detailed information about swiftly's intended features and implementation, check out the [design document](DESIGN.md).
 
 ## Command interface overview
 

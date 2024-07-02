@@ -45,7 +45,7 @@ final class SelfUpdateTests: SwiftlyTests {
             try Data("old".utf8).write(to: swiftlyURL)
 
             var update = try self.parseCommand(SelfUpdate.self, ["self-update"])
-            update.httpClient = Self.makeMockHTTPClient(latestVersion: latestVersion)
+            SelfUpdate.httpClient = Self.makeMockHTTPClient(latestVersion: latestVersion)
             try await update.run()
 
             let swiftly = try Data(contentsOf: swiftlyURL)

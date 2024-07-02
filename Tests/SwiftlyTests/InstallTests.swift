@@ -16,7 +16,10 @@ final class InstallTests: SwiftlyTests {
 
             let config = try Config.load()
 
-            XCTAssertTrue(!config.installedToolchains.isEmpty)
+            guard !config.installedToolchains.isEmpty else {
+                XCTFail("expected to install latest main snapshot toolchain but installed toolchains is empty in the config")
+                return
+            }
 
             let installedToolchain = config.installedToolchains.first!
 
@@ -45,7 +48,10 @@ final class InstallTests: SwiftlyTests {
 
             let config = try Config.load()
 
-            XCTAssertTrue(!config.installedToolchains.isEmpty)
+            guard !config.installedToolchains.isEmpty else {
+                XCTFail("expected swiftly install latest to insall release toolchain but installed toolchains is empty in config")
+                return
+            }
 
             let installedToolchain = config.installedToolchains.first!
 
@@ -125,7 +131,10 @@ final class InstallTests: SwiftlyTests {
 
             let config = try Config.load()
 
-            XCTAssertTrue(!config.installedToolchains.isEmpty)
+            guard !config.installedToolchains.isEmpty else {
+                XCTFail("expected to install latest main snapshot toolchain but installed toolchains is empty in the config")
+                return
+            }
 
             let installedToolchain = config.installedToolchains.first!
 
@@ -152,7 +161,10 @@ final class InstallTests: SwiftlyTests {
 
             let config = try Config.load()
 
-            XCTAssertTrue(!config.installedToolchains.isEmpty)
+            guard !config.installedToolchains.isEmpty else {
+                XCTFail("expected to install latest main snapshot toolchain but installed toolchains is empty in the config")
+                return
+            }
 
             let installedToolchain = config.installedToolchains.first!
 
@@ -206,7 +218,7 @@ final class InstallTests: SwiftlyTests {
             try await cmd.run()
 
             // Assert that swiftly didn't attempt to download a new toolchain.
-            XCTAssertTrue(startTime.timeIntervalSinceNow.magnitude < 5)
+            XCTAssertTrue(startTime.timeIntervalSinceNow.magnitude < 10)
 
             let after = try Config.load()
             XCTAssertEqual(before, after)

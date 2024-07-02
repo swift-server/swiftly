@@ -2,11 +2,12 @@ import ArgumentParser
 import Foundation
 #if os(Linux)
 import LinuxPlatform
+#elseif os(macOS)
+import MacOSPlatform
 #endif
 import SwiftlyCore
 
 @main
-@available(macOS 10.15, *)
 public struct Swiftly: SwiftlyCommand {
     public static var configuration = CommandConfiguration(
         abstract: "A utility for installing and managing Swift toolchains.",
@@ -37,6 +38,8 @@ public struct Swiftly: SwiftlyCommand {
 
 #if os(Linux)
     internal static let currentPlatform = Linux.currentPlatform
+#elseif os(macOS)
+    internal static let currentPlatform = MacOS.currentPlatform
 #endif
 }
 

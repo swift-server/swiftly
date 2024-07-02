@@ -175,6 +175,24 @@ public enum ToolchainVersion {
             }
         }
     }
+
+    public var identifier: String {
+        switch self {
+        case let .stable(release) where release.patch == 0:
+            return "swift-\(release.major).\(release.minor)-RELEASE"
+        case let .stable(release) where release.minor == 0 && release.patch == 0:
+            return "swift-\(release.major)-RELEASE"
+        case let .stable(release):
+            return "swift-\(release.major).\(release.minor).\(release.patch)-RELEASE"
+        case let .snapshot(release):
+            switch release.branch {
+            case .main:
+                return "swift-DEVELOPMENT-SNAPSHOT-\(release.date)-a"
+            case let .release(major, minor):
+                return "swift-\(major).\(minor)-DEVELOPMENT-SNAPSHOT-\(release.date)-a"
+            }
+        }
+    }
 }
 
 extension ToolchainVersion: LosslessStringConvertible {

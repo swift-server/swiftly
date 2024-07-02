@@ -17,6 +17,18 @@ public struct Linux: Platform {
         }
     }
 
+    public var swiftlyBinDir: URL {
+        SwiftlyCore.mockedHomeDir.map { $0.appendingPathComponent("bin", isDirectory: true) }
+            ?? ProcessInfo.processInfo.environment["SWIFTLY_BIN_DIR"].map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local", isDirectory: true)
+            .appendingPathComponent("bin", isDirectory: true)
+    }
+
+    public var swiftlyToolchainsDir: URL {
+        self.swiftlyHomeDir.appendingPathComponent("toolchains", isDirectory: true)
+    }
+
     public var toolchainFileExtension: String {
         "tar.gz"
     }
@@ -202,24 +214,6 @@ public struct Linux: Platform {
             try self.runProgram("gpg", "--verify", sigFile.path, archive.path)
         } catch {
             throw Error(message: "Toolchain signature verification failed: \(error)")
-        }
-    }
-
-    private func runProgram(_ args: String..., quiet: Bool = false) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = args
-
-        if quiet {
-            process.standardOutput = nil
-            process.standardError = nil
-        }
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            throw Error(message: "\(args.first!) exited with non-zero status: \(process.terminationStatus)")
         }
     }
 

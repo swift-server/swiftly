@@ -19,19 +19,32 @@ This document contains the high level design of swiftly. Not all features have b
   - [Implementation sketch - macOS](#implementation-sketch---macos)
   - [`config.json` schema](#configjson-schema)
 
+## Installation of swiftly
+
+The installation of swiftly is divided into two phases: delivery and initialization. Delivery of the swiftly binary can be accomplished using different methods:
+
+* Shell "one-liner" with a string of commands that can be copy/pasted into the user's shell to securely download from the trusted website and proceed to initialization
+* Direct download from a trusted website with guidance on the correct binary for the user's platform to download and then how move on to initialization
+* System-level package (e.g. homebrew, pkg, apt-get, rpm) that downloads and places the swiftly binary in a system location outside of the user's home directory, often runnable from the user's path
+* Manual compilation of the swiftly binary from this git repository (e.g. from a development environment)
+
+We'll need an initialization phase, which detects information about the OS and distribution in the case of Linux. The initialization mode is also responsible for setting up the directory structure for the toolchains (if necessary), setting up the shell environment for the user, and determining any operating system level dependencies that are required, but missing. Swiftly has its own configuration stored in the form of a `config.json` file, which will be created as part of initialization. None of the delivery methods can perform all of these steps on their own. System package managers don't normally update all users' environment or update the user's home directory structure directly.
+
+Swiftly can perform these tasks itself with the capabilities provided by the Swift language and libraries, such as rich argument parsing, and launching system processes provided that the binary is delivered to the user. The trigger for the initialization is done via an `init` subcommand with some initialization detection for the other subcommands to help guide users who have gone off track.
+
+```
+swiftly init
+```
+
+Also, the swiftly binary itself is copied into this location if it is not run from a system location, managed by a system package manager. In this case the user is notified that a copy of swiftly has been made in the swiftly bin directory (where the symlinks to the toolchain commands will be managed) so that they can remove the temporary copy that they used to initialize.
+
+## Swiftly upgrade
+
+As part of swiftly's regular operations it can detect that the current configuration is out of date and error out. The `config.json` file contains a version at the moment it was created or last upgraded. In the case of an older version it will direct the user to run init to perform the upgrade. If a downgrade situation is detected then swiflty will fail with an error.
+
+There is also a self-update mechanism that will automate the delivery of the new swiftly binary, verifies it and runs the init subcommand to initiate the upgrade procedure. Note that the self-update will error out without performing any operations if swiftly is installed in the system, outside of the user's home directory.
+
 ## Linux
-
-### Installation of swiftly
-
-We'll need a bootstrapping script which detects information about the OS and downloads the correct pre-built swiftly executable. We can use [rustup-init.sh](https://github.com/rust-lang/rustup/blob/master/rustup-init.sh) as a general guide on implementing such a script, though it is more complicated and supports far more systems than I think we need to. At least for the initial release, I think we'll only need to support the platforms listed on [Swift.org - Getting Started](http://swift.org/getting-started), namely:
-- Ubuntu 16.04
-- Ubuntu 18.04
-- Ubuntu 20.04
-- CentOS 7
-- CentOS 8
-- Amazon Linux 2
-
-Once it has detected which platform the user is running, the script will then create `$HOME/.local/share/swiftly` (or a different path, if the user provides one. For an initial MVP, I think we can always install there). It'll also create `$HOME/.local/bin` if needed, download the prebuilt swiftly executable appropriate for the platform, and drop it in there.
 
 ### Installation of a Swift toolchain
 
@@ -52,11 +65,6 @@ The `~/.local/bin` directory would include symlinks pointing to the `bin` direct
 This is all very similar to how rustup does things, but I figure there's no need to reinvent the wheel here.
 
 ## macOS
-### Installation of swiftly
-
-Similar to Linux, the bootstrapping script for macOS will create a `~/.swiftly/bin` directory and drop the swiftly executable in it. A similar `~/.swiftly/env` file will be created and a message will be printed suggesting users add source `~/.swiftly/env` to their `.bash_profile` or `.zshrc`.
-
-The bootstrapping script will detect if xcode is installed and prompt the user to install it if it isn’t. We could also ask the user if they’d like us to install the xcode command line tools for them via `xcode-select --install`.
 
 ### Installation of a Swift toolchain
 
